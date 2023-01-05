@@ -5,9 +5,9 @@ channels:
   - defaults
 dependencies:
   - python=3.10.8
-  - pytorch
-  - sentence-transformers
-  - streamlit
+  - pytorch=1.13.1
+  - sentence-transformers=2.2.2
+  - streamlit=1.16.0
 variables:
   PYTORCH_ENABLE_MPS_FALLBACK: "1"
 prefix: /opt/homebrew/Caskroom/miniconda/base/envs/playbooks-search
