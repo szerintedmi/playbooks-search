@@ -1,0 +1,11 @@
+name: playbooks-search
+channels:
+  - defaults
+dependencies:
+  - python=3.10.8
+  - pytorch
+  - sentence-transformers
+  - streamlit
+variables:
+  PYTORCH_ENABLE_MPS_FALLBACK: "1"
+prefix: /opt/homebrew/Caskroom/miniconda/base/envs/playbooks-search
