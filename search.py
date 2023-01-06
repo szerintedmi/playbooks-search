@@ -129,19 +129,19 @@ if len(selected_content) > 0:
                         "temperature": 0.2}
 
         start_time = time.time()
-        resp = search_module.get_completition(query_params)
+        completion_resp = search_module.get_completition(query_params)
         end_time = time.time()
 
         print("Results (after {:.3f} seconds):".format(end_time - start_time))
 
-        prompt_response = resp.choices[0].text
+        prompt_response = completion_resp.choices[0].text
         st.write(prompt_response)
 
         logger.log_search(query, search_module.MODEL_NAME, all_result,
-                          query_params, prompt_response, resp.usage.total_tokens, end_time - start_time)
+                          query_params, completion_resp, completion_resp.usage.total_tokens, end_time - start_time)
 
         st.write(
-            f"`tokens used: {resp.usage.total_tokens} | prompt tokens: {token_count} | max_tokens: {max_tokens} | completion time: {round(end_time - start_time, 2)} `")
+            f"`tokens used: {completion_resp.usage.total_tokens} | prompt tokens: {token_count} | max_tokens: {max_tokens} | completion time: {round(end_time - start_time, 2)} `")
 
         st.write("## Sources")
         for row in selected_result:
