@@ -39,6 +39,7 @@ def search(query: str, top_k: int = TOP_K) -> list({int, float}):
     return hits
 
 
+@st.experimental_singleton
 def get_corpus() -> pd.DataFrame:
     """ Returns the corpus loaded as dataframe """
     return df

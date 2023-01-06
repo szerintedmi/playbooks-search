@@ -3,7 +3,9 @@ Search using OpenAI
 """
 import pandas as pd
 import time
-from embed_openAI import get_single_embedding
+import streamlit as st
+import os
+import openai
 from openai.embeddings_utils import cosine_similarity
 
 RESULT_MIN_SCORE = 0.5  # don't inlcude content from result below this score
@@ -11,6 +13,8 @@ RESULT_MIN_SCORE = 0.5  # don't inlcude content from result below this score
 TOP_K = 16  # Number of results we want to retrieve
 
 MODEL_NAME = "text-embedding-ada-002"  # only used for logging
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def search(query: str, top_k: int = TOP_K) -> list({int, float}):
@@ -43,9 +47,31 @@ def search(query: str, top_k: int = TOP_K) -> list({int, float}):
     return hits
 
 
+@st.experimental_singleton
 def get_corpus() -> pd.DataFrame:
     """ Returns the corpus loaded as dataframe """
     return df
+
+
+@st.experimental_memo
+def get_single_embedding(text: str) -> object:
+    """
+    Get a single embedding from OpenAI API 
+    returns the full response object (token usage data)
+    """
+    response = openai.Embedding.create(
+        input=text,
+        model='text-embedding-ada-002',
+    )
+    return response
+
+
+@st.experimental_memo
+def get_completition(query_params: object):
+    resp = openai.Completion.create(
+        **query_params
+    )
+    return resp
 
 
 df = pd.read_parquet('corpus/embeddings_oai_ada.parquet')

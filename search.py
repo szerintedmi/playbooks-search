@@ -6,16 +6,16 @@ TODO: debug url param?
 import streamlit as st
 import pandas as pd
 import logger
+import time
 
-import search_SentenceTransformers as search_module
-# import search_oai as search_module
+# import search_SentenceTransformers as search_module
+import search_oai as search_module
 
 # not including the fix part of the prompt + added title for each section
 PROMPT_CONTENT_MAX_TOKENS = 2000
 CONTENT_PREVIEW_LEN = 500
 
 NEWLINE = "\n"  # workaround for \ not allowed in f strings
-
 
 st.set_page_config(layout="wide")
 
@@ -40,11 +40,12 @@ query = st.text_input(label_visibility="collapsed", label="Your question:",
 
 if query.strip() == "":
     st.write("""Ideas to try:
-    
+
  * What is the difference between a product manager and a product owner?
  * What are your key recommendations for secure delivery?
  * How can I improve my release cycles?
  * What's the difference between an inception and a discovery?
+ * How should I start a digital platform?
  * How to run an inception?
  * How to run a discovery?
  """)
@@ -57,83 +58,107 @@ token_count = 0
 
 
 if query.strip() != "":
-    all_result = search_module.search(query)
+    with st.spinner('Analyzing question ...'):
+        all_result = search_module.search(query)
 
-    if len(all_result) > 0:
-        all_result = pd.DataFrame(all_result)
-        all_result = all_result.merge(
-            search_module.get_corpus(), left_on='corpus_id', right_index=True)
+        if len(all_result) > 0:
+            all_result = pd.DataFrame(all_result)
+            all_result = all_result.merge(
+                search_module.get_corpus(), left_on='corpus_id', right_index=True)
 
-        selected_result = []
+            selected_result = []
 
-        for index, row in all_result.iterrows():
-            # Checks if result should be added to selected_result + avoid duplicate content
+            for index, row in all_result.iterrows():
+                # Checks if result should be added to selected_result + avoid duplicate content
 
-            if row['score'] < search_module.RESULT_MIN_SCORE:
-                break
+                if row['score'] < search_module.RESULT_MIN_SCORE:
+                    break
 
-            if row['tokensLength'] + token_count <= PROMPT_CONTENT_MAX_TOKENS:
-                add_row = True
-                row_path_comparator = "#".join(
-                    [""] + row.navInfo["sectionPath"] + [""])
+                if row['tokensLength'] + token_count <= PROMPT_CONTENT_MAX_TOKENS:
+                    add_row = True
+                    row_path_comparator = "#".join(
+                        [""] + row.navInfo["sectionPath"] + [""])
 
-                for x_idx, x in enumerate(selected_result):
-                    # If part of this section is already in selected_result as subsection
-                    #   then remove the subsection before adding this section. E.g.:
-                    #       row already in selected_result (x):   title1 -> title2 -> title3  ===> remove
-                    #                              current row:   title1 -> title2            ===> add
-                    x_path_comparator = "#".join(
-                        [""] + x.navInfo["sectionPath"] + [""])
+                    for x_idx, x in enumerate(selected_result):
+                        # If part of this section is already in selected_result as subsection
+                        #   then remove the subsection before adding this section. E.g.:
+                        #       row already in selected_result (x):   title1 -> title2 -> title3  ===> remove
+                        #                              current row:   title1 -> title2            ===> add
+                        x_path_comparator = "#".join(
+                            [""] + x.navInfo["sectionPath"] + [""])
 
-                    if x['sourcePath'] == row['sourcePath'] and row_path_comparator in x_path_comparator:
-                        selected_result.pop(x_idx)
+                        if x['sourcePath'] == row['sourcePath'] and row_path_comparator in x_path_comparator:
+                            selected_result.pop(x_idx)
 
-                    # if current section (row) is already in selected_result (x) as part of a parent section then skip
-                    if x['sourcePath'] == row['sourcePath'] and x_path_comparator in row_path_comparator:
-                        add_row = False
-                        break
+                        # if current section (row) is already in selected_result (x) as part of a parent section then skip
+                        if x['sourcePath'] == row['sourcePath'] and x_path_comparator in row_path_comparator:
+                            add_row = False
+                            break
 
-                if add_row:
-                    selected_result.append(row)
+                    if add_row:
+                        selected_result.append(row)
 
-                token_count = sum(d['tokensLength'] for d in selected_result)
+                    token_count = sum(d['tokensLength']
+                                      for d in selected_result)
 
-        for row in selected_result:
-            # create context for the answer based on selected_result
-            # TODO: use list comprehension
-            selected_content.append(
-                f"{row.fullTitle}\n\n{row['content']}")
+            for row in selected_result:
+                # create context for the answer based on selected_result
+                # TODO: use list comprehension
+                selected_content.append(
+                    f"{row.fullTitle}\n\n{row['content']}")
 
-        question_prompt = f"""\
-Answer the QUESTION based on the following PLAYBOOKs in markdown format.
-Show links in the answer.
-Give very detailed answer and use bullet points.
-Answer the question as truthfully as possible and
-if you're unsure of the answer, say "Sorry, I don't know"
-QUESTION: {query}
-PLAYBOOKS:
-{(NEWLINE + NEWLINE).join(selected_content)}
-"""
+            question_prompt = f"""\
+    Answer the QUESTION based on the following PLAYBOOKs in markdown format.
+    Give very detailed answer and use bullet points.
+    Answer the question as truthfully as possible and
+    if you're unsure of the answer, say "Sorry, I don't know"
+    QUESTION: {query}
+    PLAYBOOKS:
+    {(NEWLINE + NEWLINE).join(selected_content)}
+    ANSWER:
+    """
 
 
 if len(selected_content) > 0:
+    with st.spinner('Firing neurons ...'):
+        max_tokens = int(min([token_count / 2, 4000 - token_count]))
 
-    st.write("## Sources")
-    for row in selected_result:
+        query_params = {"model": "text-davinci-003",
+                        "prompt": question_prompt,
+                        "max_tokens": max_tokens,
+                        "temperature": 0.2}
 
-        with st.expander(row.fullTitle):
-            st.write(
-                row.content[:CONTENT_PREVIEW_LEN] +
-                f"{'...' if len(row.content) > CONTENT_PREVIEW_LEN else '' }\n\n"
-                f"[Read all in the playbook >>]({row.navInfo['playbookUrl']})")
+        start_time = time.time()
+        resp = search_module.get_completition(query_params)
+        end_time = time.time()
 
-            # Debug:
-            st.write(
+        print("Results (after {:.3f} seconds):".format(end_time - start_time))
 
-                f"`id: {row['corpus_id']} | path_depth: {row.navInfo['pathDepth']} | level: {row.level}"
-                f" | tokens: {row.tokensLength} | score: {round(row.score,4)}\n"
-                f" | {row.navInfo['playbookUrl']} | {row.sourcePath} | page_title: '{row.navInfo['pageTitle']}'"
-                f" | subtitles: '{row.navInfo['subTitles']}' | anchor_slug: '{row.navInfo['anchorSlug']}'`")
+        prompt_response = resp.choices[0].text
+        st.write(prompt_response)
+
+        logger.log_search(query, search_module.MODEL_NAME, all_result,
+                          query_params, prompt_response, resp.usage.total_tokens, end_time - start_time)
+
+        st.write(
+            f"`tokens used: {resp.usage.total_tokens} | prompt tokens: {token_count} | max_tokens: {max_tokens} | completion time: {round(end_time - start_time, 2)} `")
+
+        st.write("## Sources")
+        for row in selected_result:
+
+            with st.expander(row.fullTitle):
+                st.write(
+                    row.content[:CONTENT_PREVIEW_LEN] +
+                    f"{'...' if len(row.content) > CONTENT_PREVIEW_LEN else '' }\n\n"
+                    f"[Read all in the playbook >>]({row.navInfo['playbookUrl']})")
+
+                # Debug:
+                st.write(
+
+                    f"`id: {row['corpus_id']} | path_depth: {row.navInfo['pathDepth']} | level: {row.level}"
+                    f" | tokens: {row.tokensLength} | score: {round(row.score,4)}\n"
+                    f" | {row.navInfo['playbookUrl']} | {row.sourcePath} | page_title: '{row.navInfo['pageTitle']}'"
+                    f" | subtitles: '{row.navInfo['subTitles']}' | anchor_slug: '{row.navInfo['anchorSlug']}'`")
 
 elif query.strip() != "":
     st.warning(
@@ -156,9 +181,6 @@ if len(all_result) > 0:
 
             st.dataframe(
                 all_result[["corpus_id", 'score', 'level', 'navInfo', 'content', 'tokensLength']], height=200)
-
-            logger.log_search(query, search_module.MODEL_NAME, all_result,
-                              question_prompt, "pronpt_response TO BE IMPLEMENTED", 0)
 
         st.write("**Full Corpus**")
         st.write(search_module.get_corpus())
