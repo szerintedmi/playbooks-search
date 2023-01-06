@@ -121,7 +121,7 @@ if query.strip() != "":
 
 if len(selected_content) > 0:
     with st.spinner('Firing neurons ...'):
-        max_tokens = int(min([token_count / 2, 4000 - token_count]))
+        max_tokens = int(min([token_count * 0.75, 4000 - token_count]))
 
         query_params = {"model": "text-davinci-003",
                         "prompt": question_prompt,
