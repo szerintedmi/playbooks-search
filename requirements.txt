@@ -1,7 +1,0 @@
-matplotlib==3.6.2
-openai==0.25.0
-plotly==5.11.0
-sentence-transformers==2.2.2
-streamlit==1.16.0
-supabase==0.7.1
-torch==1.13.1

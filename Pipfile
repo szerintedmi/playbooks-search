@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+openai = "*"
+sentence-transformers = "*"
+streamlit = "*"
+supabase = "*"
+matplotlib = "*"
+plotly = "*"
+tiktoken = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
+python_full_version = "3.11.3"

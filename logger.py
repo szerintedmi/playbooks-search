@@ -16,8 +16,8 @@ def log_search(query: str, embedding_model: str, corpus_result: object, completi
     """
     Log the search query and the result to supadb database
     """
-    data = supabase.table("query_logs").insert(
-        {"query": query, "embedding_model": embedding_model,
+    data = supabase.table("query_logs_new").insert(
+        {"query": query, "embedding_model": embedding_model, "chat_model": completion_params["model"],
          "corpus_result": corpus_result[["corpus_id", 'score', 'fullTitle', 'tokensLength']].to_dict("records"),
          "completion_params": completion_params, "completion_response": completion_response,
          "token_usage": token_usage, "completion_time": completion_time}).execute()
